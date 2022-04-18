@@ -146,6 +146,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -363,8 +365,15 @@ public final class EmulatedPosixSupport extends PosixResources {
         @Specialization(replaces = "getPid")
         @TruffleBoundary
         static long getPidFallback(@SuppressWarnings("unused") EmulatedPosixSupport receiver) {
-            String info = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-            return Long.parseLong(info.split("@")[0]);
+            try {
+                Class<?> process = Class.forName("android.os.Process");
+                Method method = process.getDeclaredMethod("myPid");
+                int pid = (int) method.invoke(null);
+                return pid;
+            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException |
+                     InvocationTargetException e) {
+                return 0;
+            }
         }
     }
 

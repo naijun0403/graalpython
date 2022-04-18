@@ -26,9 +26,6 @@
 package com.oracle.graal.python.builtins.modules;
 
 import com.oracle.graal.python.builtins.Builtin;
-import java.lang.management.GarbageCollectorMXBean;
-import java.lang.management.ManagementFactory;
-import java.util.List;
 
 import com.oracle.graal.python.builtins.CoreFunctions;
 import com.oracle.graal.python.builtins.PythonBuiltins;
@@ -139,15 +136,7 @@ public final class GcModuleBuiltins extends PythonBuiltins {
         @Specialization
         @TruffleBoundary
         public PTuple count() {
-            List<GarbageCollectorMXBean> garbageCollectorMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
-            long count = 0;
-            for (GarbageCollectorMXBean gcbean : garbageCollectorMXBeans) {
-                long cc = gcbean.getCollectionCount();
-                if (cc > 0) {
-                    count += cc;
-                }
-            }
-            return factory().createTuple(new Object[]{count, 0, 0});
+            return factory().createTuple(new Object[]{1, 0, 0});
         }
     }
 

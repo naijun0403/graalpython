@@ -223,11 +223,7 @@ public class SysModuleBuiltins extends PythonBuiltins {
 
     static {
         String compile_time;
-        try {
-            compile_time = new Date(PythonBuiltins.class.getResource("PythonBuiltins.class").openConnection().getLastModified()).toString();
-        } catch (IOException e) {
-            compile_time = "";
-        }
+        compile_time = new Date().toString();
         COMPILE_TIME = compile_time;
     }
 

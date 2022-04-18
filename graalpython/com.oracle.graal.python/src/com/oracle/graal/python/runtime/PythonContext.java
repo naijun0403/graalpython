@@ -1113,9 +1113,13 @@ public final class PythonContext extends Python3Core {
         if (secureRandom == null) {
             CompilerDirectives.transferToInterpreterAndInvalidate();
             try {
-                secureRandom = SecureRandom.getInstance("NativePRNGNonBlocking");
+                secureRandom = SecureRandom.getInstance("NativePRNG");
             } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Unable to obtain entropy source for random number generation (NativePRNGNonBlocking)", e);
+                try {
+                    secureRandom = SecureRandom.getInstanceStrong();
+                } catch (NoSuchAlgorithmException ex) {
+                    throw new RuntimeException("Unable to obtain entropy source for random number generation (NativePRNGNonBlocking)", ex);
+                }
             }
         }
         return secureRandom;

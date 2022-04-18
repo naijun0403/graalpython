@@ -327,19 +327,8 @@ public final class PythonUtils {
     private static final ObjectName OBJECT_NAME;
 
     static {
-        if (ImageInfo.inImageCode()) {
-            OBJECT_NAME = null;
-            SERVER = null;
-        } else {
-            SERVER = ManagementFactory.getPlatformMBeanServer();
-            ObjectName n;
-            try {
-                n = new ObjectName("com.sun.management:type=DiagnosticCommand");
-            } catch (final MalformedObjectNameException e) {
-                n = null;
-            }
-            OBJECT_NAME = n;
-        }
+        OBJECT_NAME = null;
+        SERVER = null;
     }
 
     /**
@@ -362,11 +351,7 @@ public final class PythonUtils {
     public static void dumpHeap(String path) {
         if (SERVER != null) {
             try {
-                Class<?> mxBeanClass = Class.forName("com.sun.management.HotSpotDiagnosticMXBean");
-                Object mxBean = ManagementFactory.newPlatformMXBeanProxy(SERVER,
-                                "com.sun.management:type=HotSpotDiagnostic",
-                                mxBeanClass);
-                mxBeanClass.getMethod("dumpHeap", String.class, boolean.class).invoke(mxBean, path, true);
+                // TODO Not implement in android!
             } catch (Throwable e) {
                 System.err.println("Cannot dump heap: " + e.getMessage());
                 e.printStackTrace();

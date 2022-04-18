@@ -42,10 +42,6 @@ package com.oracle.graal.python.builtins.modules;
 
 import static com.oracle.graal.python.runtime.exception.PythonErrorType.ValueError;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
-import java.lang.management.ThreadMXBean;
 import java.util.List;
 
 import com.oracle.graal.python.builtins.Builtin;
@@ -63,7 +59,6 @@ import com.oracle.truffle.api.dsl.GenerateNodeFactory;
 import com.oracle.truffle.api.dsl.ImportStatic;
 import com.oracle.truffle.api.dsl.NodeFactory;
 import com.oracle.truffle.api.dsl.Specialization;
-import org.graalvm.nativeimage.ImageInfo;
 
 @CoreFunctions(defineModule = "resource")
 public class ResourceModuleBuiltins extends PythonBuiltins {
@@ -128,22 +123,7 @@ public class ResourceModuleBuiltins extends PythonBuiltins {
             double ru_stime = 0; // time in system mode (float)
             long ru_maxrss; // maximum resident set size
 
-            if (!ImageInfo.inImageCode()) {
-                ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-                if (threadMXBean.isCurrentThreadCpuTimeSupported()) {
-                    ru_utime = threadMXBean.getThreadUserTime(id) / 1000000000.0;
-                    ru_stime = (threadMXBean.getThreadCpuTime(id) - threadMXBean.getThreadUserTime(id)) / 1000000000.0;
-                }
-
-                if (threadMXBean instanceof com.sun.management.ThreadMXBean) {
-                    com.sun.management.ThreadMXBean thMxBean = (com.sun.management.ThreadMXBean) threadMXBean;
-                    ru_maxrss = thMxBean.getThreadAllocatedBytes(id);
-                } else {
-                    ru_maxrss = runtime.maxMemory();
-                }
-            } else {
-                ru_maxrss = runtime.maxMemory();
-            }
+            ru_maxrss = runtime.maxMemory();
 
             String osName = System.getProperty("os.name");
             if (osName.contains("Linux")) {
@@ -178,30 +158,7 @@ public class ResourceModuleBuiltins extends PythonBuiltins {
             double ru_stime = 0; // time in system mode (float)
             long ru_maxrss;
 
-            if (!ImageInfo.inImageCode()) {
-                ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-                if (threadMXBean.isThreadCpuTimeSupported()) {
-                    for (long thId : threadMXBean.getAllThreadIds()) {
-                        long tu = threadMXBean.getThreadUserTime(thId);
-                        long tc = threadMXBean.getThreadCpuTime(thId);
-
-                        if (tu != -1) {
-                            ru_utime += tu / 1000000000.0;
-                        }
-
-                        if (tu != -1 && tc != -1) {
-                            ru_stime += (tc - tu) / 1000000000.0;
-                        }
-                    }
-                }
-
-                MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
-                MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
-                MemoryUsage nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
-                ru_maxrss = heapMemoryUsage.getCommitted() + nonHeapMemoryUsage.getCommitted();
-            } else {
-                ru_maxrss = runtime.maxMemory();
-            }
+            ru_maxrss = runtime.maxMemory();
 
             String osName = System.getProperty("os.name");
             if (osName.contains("Linux")) {

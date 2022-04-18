@@ -115,7 +115,12 @@ public class CharsetMapping {
 
     @TruffleBoundary
     public static String getPythonEncodingNameFromJavaName(String javaEncodingName) {
-        return CHARSET_NAME_MAP_REVERSE.get(javaEncodingName.toLowerCase());
+        try {
+            return CHARSET_NAME_MAP_REVERSE.get(javaEncodingName.toLowerCase());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "UTF-8";
+        }
     }
 
     @TruffleBoundary
@@ -181,7 +186,7 @@ public class CharsetMapping {
         JAVA_CHARSETS.put("UTF-16BE", StandardCharsets.UTF_16BE);
         JAVA_CHARSETS.put("UTF-16LE", StandardCharsets.UTF_16LE);
         JAVA_CHARSETS.put("UTF-16", ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? Charset.forName("UnicodeLittle") : StandardCharsets.UTF_16);
-        JAVA_CHARSETS.put("UTF-32", ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? Charset.forName("UTF-32LE-BOM") : Charset.forName("UTF-32BE-BOM"));
+        JAVA_CHARSETS.put("UTF-32", ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? Charset.forName("UTF-32LE") : Charset.forName("UTF-32BE"));
 
         // Add our custom charsets
         addMapping("raw_unicode_escape", "x-python-raw-unicode-escape");

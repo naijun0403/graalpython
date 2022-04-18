@@ -80,8 +80,8 @@ import com.oracle.truffle.api.dsl.TypeSystemReference;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.object.HiddenKey;
 
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
+import com.oracle.graal.python.util.Signal;
+import com.oracle.graal.python.util.SignalHandler;
 
 @CoreFunctions(defineModule = "_signal")
 public class SignalModuleBuiltins extends PythonBuiltins {
@@ -187,9 +187,9 @@ public class SignalModuleBuiltins extends PythonBuiltins {
 
     @TruffleBoundary
     private static Object handlerToPython(SignalHandler handler, int signum) {
-        if (handler == sun.misc.SignalHandler.SIG_DFL) {
+        if (handler == SignalHandler.SIG_DFL) {
             return Signals.SIG_DFL;
-        } else if (handler == sun.misc.SignalHandler.SIG_IGN) {
+        } else if (handler == SignalHandler.SIG_IGN) {
             return Signals.SIG_IGN;
         } else if (handler instanceof Signals.PythonSignalHandler) {
             return signalHandlers.getOrDefault(signum, PNone.NONE);
@@ -331,7 +331,7 @@ public class SignalModuleBuiltins extends PythonBuiltins {
         @Specialization
         @TruffleBoundary
         static PNone doInt(int signum) {
-            Signal.raise(new sun.misc.Signal(Signals.signalNumberToName(signum)));
+            Signal.raise(new Signal(Signals.signalNumberToName(signum)));
             return PNone.NONE;
         }
 
@@ -354,18 +354,12 @@ final class Signals {
     static final String[] signalNames = new String[SIGMAX + 1];
 
     static {
-        for (String signal : new String[]{"ABRT", "ALRM", "BUS", "FPE", "HUP", "ILL", "INFO", "INT", "KILL", "LOST",
-                        "PIPE", "PWR", "QUIT", "SEGV", "SYS", "TERM", "TRAP", "TSTP", "TTIN", "TTOUT", "USR1", "USR2",
-                        "VTALRM", "WINCH"}) {
-            try {
-                int number = new sun.misc.Signal(signal).getNumber();
-                if (number > SIGMAX) {
-                    continue;
-                }
-                signalNames[number] = signal;
-            } catch (IllegalArgumentException e) {
-            }
-        }
+        signalNames[22] = "ABRT";
+        signalNames[8] = "FPE";
+        signalNames[4] = "ILL";
+        signalNames[2] = "INT";
+        signalNames[11] = "SEGV";
+        signalNames[15] = "TERM";
     }
 
     private static class Alarm implements Runnable {
@@ -385,7 +379,6 @@ final class Signals {
                     Thread.currentThread().interrupt();
                 }
             }
-            sun.misc.Signal.raise(new sun.misc.Signal("ALRM"));
         }
     }
 
@@ -394,7 +387,7 @@ final class Signals {
         new Thread(new Alarm(seconds)).start();
     }
 
-    static class PythonSignalHandler implements sun.misc.SignalHandler {
+    static class PythonSignalHandler implements SignalHandler {
         private final Runnable handler;
 
         public PythonSignalHandler(Runnable handler) {
@@ -402,7 +395,7 @@ final class Signals {
         }
 
         @Override
-        public void handle(sun.misc.Signal arg0) {
+        public void handle(Signal arg0) {
             handler.run();
         }
     }
@@ -418,37 +411,16 @@ final class Signals {
 
     @TruffleBoundary
     synchronized static SignalHandler setSignalHandler(int signum, SignalHandler handler) throws IllegalArgumentException {
-        return sun.misc.Signal.handle(new sun.misc.Signal(signalNumberToName(signum)), handler);
+        return SignalHandler.SIG_DFL;
     }
 
     @TruffleBoundary
     synchronized static SignalHandler setSignalHandler(int signum, int handler) throws IllegalArgumentException {
-        sun.misc.SignalHandler h;
-        if (handler == SIG_DFL) {
-            h = sun.misc.SignalHandler.SIG_DFL;
-        } else if (handler == SIG_IGN) {
-            h = sun.misc.SignalHandler.SIG_IGN;
-        } else {
-            throw new IllegalArgumentException();
-        }
-        return sun.misc.Signal.handle(new sun.misc.Signal(signalNumberToName(signum)), h);
+        return SignalHandler.SIG_DFL;
     }
 
     @TruffleBoundary
     synchronized static SignalHandler getCurrentSignalHandler(int signum) {
-        // To check what the current signal handler, we install default to get the current one
-        // and immediately replace it again.
-        sun.misc.SignalHandler oldH;
-        try {
-            oldH = sun.misc.Signal.handle(new sun.misc.Signal(signalNumberToName(signum)), sun.misc.SignalHandler.SIG_DFL);
-        } catch (IllegalArgumentException e) {
-            return sun.misc.SignalHandler.SIG_DFL;
-        }
-        try {
-            sun.misc.Signal.handle(new sun.misc.Signal(signalNumberToName(signum)), oldH);
-        } catch (IllegalArgumentException e) {
-            return sun.misc.SignalHandler.SIG_DFL;
-        }
-        return oldH;
+        return SignalHandler.SIG_DFL;
     }
 }

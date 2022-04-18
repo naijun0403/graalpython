@@ -33,6 +33,7 @@ import static com.oracle.graal.python.runtime.exception.PythonErrorType.TypeErro
 import static com.oracle.graal.python.runtime.exception.PythonErrorType.ValueError;
 
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.InvocationTargetException;
 import java.text.DateFormatSymbols;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -437,7 +438,13 @@ public final class TimeModuleBuiltins extends PythonBuiltins {
         @Specialization
         @TruffleBoundary
         Object getProcesTime() {
-            return !ImageInfo.inImageCode() ? (ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime()) / 1000_000_000.0 : 0;
+            try {
+                Class<?> debug = Class.forName("android.os.Debug");
+                return !ImageInfo.inImageCode() ? (long) debug.getDeclaredMethod("threadCpuTimeNanos").invoke(null) / 1000_000_000.0 : 0;
+            } catch (NoClassDefFoundError | ClassNotFoundException | NoSuchMethodException | InvocationTargetException |
+                     IllegalAccessException ignored) {
+                return 0;
+            }
         }
     }
 
@@ -448,7 +455,13 @@ public final class TimeModuleBuiltins extends PythonBuiltins {
         @Specialization
         @TruffleBoundary
         Object getProcesNsTime() {
-            return !ImageInfo.inImageCode() ? ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() : 0;
+            try {
+                Class<?> debug = Class.forName("android.os.Debug");
+                return !ImageInfo.inImageCode() ? debug.getDeclaredMethod("threadCpuTimeNanos").invoke(null) : 0;
+            } catch (NoClassDefFoundError | ClassNotFoundException | NoSuchMethodException | InvocationTargetException |
+                     IllegalAccessException ignored) {
+                return 0;
+            }
         }
     }
 
