@@ -251,6 +251,7 @@ import com.oracle.truffle.api.dsl.GenerateUncached;
 import com.oracle.truffle.api.dsl.ImportStatic;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.io.TruffleProcessBuilder;
+import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.library.ExportLibrary;
 import com.oracle.truffle.api.library.ExportMessage;
 import com.oracle.truffle.api.library.ExportMessage.Ignore;
@@ -984,7 +985,7 @@ public final class EmulatedPosixSupport extends PosixResources {
                         LAST_ACCESS_TIME,
                         LAST_MODIFIED_TIME,
                         UNIX_CTIME), linkOptions);
-        return setTimestamps(attributes, new long[]{
+        return setTimestamps(attributes, UNIX_CTIME, new long[]{
                         attributes.get(UNIX_MODE),
                         attributes.get(UNIX_INODE),
                         attributes.get(UNIX_DEV),
@@ -1010,7 +1011,7 @@ public final class EmulatedPosixSupport extends PosixResources {
                         UNIX_GROUP,
                         UNIX_PERMISSIONS), linkOptions);
         final Set<PosixFilePermission> posixFilePermissions = attributes.get(UNIX_PERMISSIONS);
-        return setTimestamps(attributes, new long[]{
+        return setTimestamps(attributes, CREATION_TIME, new long[]{
                         posixPermissionsToMode(fileTypeBitsFromAttributes(attributes), posixFilePermissions),
                         getEmulatedInode(file), // ino
                         0, // dev
@@ -1049,7 +1050,7 @@ public final class EmulatedPosixSupport extends PosixResources {
             mode |= 0100;
         }
         int inode = getEmulatedInode(file);
-        return setTimestamps(attributes, new long[]{
+        return setTimestamps(attributes, CREATION_TIME, new long[]{
                         mode,
                         inode, // ino
                         0, // dev
@@ -1062,10 +1063,10 @@ public final class EmulatedPosixSupport extends PosixResources {
         });
     }
 
-    private static long[] setTimestamps(Attributes attributes, long[] statResult) {
+    private static long[] setTimestamps(Attributes attributes, TruffleFile.AttributeDescriptor<FileTime> ctimeDescriptor, long[] statResult) {
         FileTime atime = attributes.get(LAST_ACCESS_TIME);
         FileTime mtime = attributes.get(LAST_MODIFIED_TIME);
-        FileTime ctime = attributes.get(UNIX_CTIME);
+        FileTime ctime = attributes.get(ctimeDescriptor);
         statResult[7] = fileTimeToSeconds(atime);
         statResult[8] = fileTimeToSeconds(mtime);
         statResult[9] = fileTimeToSeconds(ctime);
@@ -1710,6 +1711,12 @@ public final class EmulatedPosixSupport extends PosixResources {
     @TruffleBoundary
     private static void interruptThread() {
         Thread.currentThread().interrupt();
+    }
+
+    @ExportMessage
+    @SuppressWarnings("static-method")
+    public void abort(@CachedLibrary("this") PosixSupportLibrary thisLib) {
+        throw new PythonExitException(thisLib, 134); // 134 == 128 + SIGABRT
     }
 
     // TODO the implementation of the following builtins is taken from posix.py,
