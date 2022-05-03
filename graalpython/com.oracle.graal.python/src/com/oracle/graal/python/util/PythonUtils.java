@@ -43,20 +43,12 @@ package com.oracle.graal.python.util;
 import static com.oracle.graal.python.nodes.SpecialAttributeNames.__DOC__;
 import static com.oracle.graal.python.nodes.SpecialMethodNames.__NEW__;
 
-import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanException;
-import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
-import javax.management.ReflectionException;
 
 import org.graalvm.nativeimage.ImageInfo;
 
@@ -320,43 +312,18 @@ public final class PythonUtils {
         return r;
     }
 
-    private static final MBeanServer SERVER;
-    private static final String OPERATION_NAME = "gcRun";
-    private static final Object[] PARAMS = new Object[]{null};
-    private static final String[] SIGNATURE = new String[]{String[].class.getName()};
-    private static final ObjectName OBJECT_NAME;
-
-    static {
-        OBJECT_NAME = null;
-        SERVER = null;
-    }
-
     /**
      * {@link System#gc()} does not force a GC, but the DiagnosticCommand "gcRun" does.
      */
     @TruffleBoundary
     public static void forceFullGC() {
-        if (OBJECT_NAME != null && SERVER != null) {
-            try {
-                SERVER.invoke(OBJECT_NAME, OPERATION_NAME, PARAMS, SIGNATURE);
-            } catch (InstanceNotFoundException | ReflectionException | MBeanException e) {
-                // use fallback
-            }
-        }
         System.gc();
         Runtime.getRuntime().freeMemory();
     }
 
     @TruffleBoundary
     public static void dumpHeap(String path) {
-        if (SERVER != null) {
-            try {
-                // TODO Not implement in android!
-            } catch (Throwable e) {
-                System.err.println("Cannot dump heap: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
+        // TODO Not implement in android!
     }
 
     /**
