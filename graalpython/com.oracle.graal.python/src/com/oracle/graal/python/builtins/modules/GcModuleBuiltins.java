@@ -27,6 +27,8 @@ package com.oracle.graal.python.builtins.modules;
 
 import com.oracle.graal.python.builtins.Builtin;
 
+import java.util.List;
+
 import com.oracle.graal.python.builtins.CoreFunctions;
 import com.oracle.graal.python.builtins.PythonBuiltins;
 import com.oracle.graal.python.builtins.objects.PNone;
