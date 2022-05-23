@@ -68,7 +68,7 @@ from mx_graalpython_benchmark import PythonBenchmarkSuite, python_vm_registry, C
     CONFIGURATION_NATIVE_INTERPRETER_MULTI, PythonJavaEmbeddingBenchmarkSuite, python_java_embedding_vm_registry, \
     GraalPythonJavaDriverVm, CONFIGURATION_JAVA_EMBEDDING_INTERPRETER_MULTI_SHARED, \
     CONFIGURATION_JAVA_EMBEDDING_INTERPRETER_MULTI, CONFIGURATION_JAVA_EMBEDDING_MULTI_SHARED, \
-    CONFIGURATION_JAVA_EMBEDDING_MULTI
+    CONFIGURATION_JAVA_EMBEDDING_MULTI, CONFIGURATION_DEFAULT_BYTECODE, CONFIGURATION_INTERPRETER_BYTECODE
 
 if not sys.modules.get("__main__"):
     # workaround for pdb++
@@ -789,7 +789,6 @@ def run_hpy_unittests(python_binary, args=None):
                 "args": args, "paths": [_hpy_test_root()], "env": env.copy(), "use_pytest": True, "lock": lock,
             }))
             threads[-1].start()
-        retval = 0
         for t in threads:
             t.join()
         for t in threads:
@@ -1633,8 +1632,15 @@ def _register_vms(namespace):
 
     # graalpython
     python_vm_registry.add_vm(GraalPythonVm(config_name=CONFIGURATION_DEFAULT), SUITE, 10)
+    python_vm_registry.add_vm(GraalPythonVm(config_name=CONFIGURATION_DEFAULT_BYTECODE, extra_polyglot_args=[
+        '--experimental-options', '--python.EnableBytecodeInterpreter', '--python.DisableFrozenModules',
+    ]), SUITE, 10)
     python_vm_registry.add_vm(GraalPythonVm(config_name=CONFIGURATION_INTERPRETER, extra_polyglot_args=[
         '--experimental-options', '--engine.Compilation=false'
+    ]), SUITE, 10)
+    python_vm_registry.add_vm(GraalPythonVm(config_name=CONFIGURATION_INTERPRETER_BYTECODE, extra_polyglot_args=[
+        '--experimental-options', '--engine.Compilation=false', '--python.EnableBytecodeInterpreter',
+        '--python.DisableFrozenModules',
     ]), SUITE, 10)
     python_vm_registry.add_vm(GraalPythonVm(config_name=CONFIGURATION_DEFAULT_MULTI, extra_polyglot_args=[
         '--experimental-options', '-multi-context',
@@ -1942,9 +1948,6 @@ class GraalpythonBuildTask(mx.ProjectBuildTask):
         return 'Building project {}'.format(self.subject.name)
 
     def build(self):
-        if not self.args.force and not self.args.all and not self.needsBuild(None)[0]:
-            mx.log(f"Refusing build of {self.subject.name}. Use e.g. `mx -f --only {self.subject.name}' to force a build.")
-            return True
         args = [mx_subst.path_substitutions.substitute(a, dependency=self) for a in self.subject.args]
         return self.run(args)
 
@@ -1982,34 +1985,6 @@ class GraalpythonBuildTask(mx.ProjectBuildTask):
 
     def src_dir(self):
         return self.subject.dir
-
-    def needsBuild(self, newestInput):
-        tsNewest = 0
-        newestFile = None
-        for root, _, files in os.walk(self.src_dir()):
-            for f in files:
-                ts = os.path.getmtime(os.path.join(root, f))
-                if tsNewest < ts:
-                    tsNewest = ts
-                    newestFile = f
-        tsOldest = sys.maxsize
-        oldestFile = None
-        for root, _, files in os.walk(self.subject.get_output_root()):
-            for f in files:
-                ts = os.path.getmtime(os.path.join(root, f))
-                if tsOldest > ts:
-                    tsOldest = ts
-                    oldestFile = f
-        if tsOldest == sys.maxsize:
-            tsOldest = 0
-        if tsOldest < tsNewest:
-            self.clean(forBuild="reallyForBuild") # we clean here, because setuptools doesn't check timestamps
-            if newestFile and oldestFile:
-                return (True, "rebuild needed, %s newer than %s" % (newestFile, oldestFile))
-            else:
-                return (True, "build needed")
-        else:
-            return (False, "up to date")
 
     def newestOutput(self):
         return None

@@ -46,7 +46,7 @@ public abstract class ErrorMessages {
     public static final String S_EXPECTED_SD_ARGS_GOT_D = "%s expected %s%d argument%s, got %d";
     public static final String UNPACKED_TUPLE_SHOULD_HAVE_D_ELEMS = "unpacked tuple should have %s%d element%s, but has %d";
     public static final String ARG_AFTER_MUST_BE_ITERABLE = "argument after * must be an iterable, not %p";
-    public static final String ARG_AFTER_MUST_BE_MAPPING = "%s() argument after ** must be a mapping, not %p";
+    public static final String ARG_AFTER_MUST_BE_MAPPING = "%s argument after ** must be a mapping, not %p";
     public static final String ARG_CONVERTED_NOT_EXECUTABLE = "argument converted is not executable";
     public static final String ARG_CANNOT_BE_NEGATIVE = "%s argument cannot be negative";
     public static final String ARG_D_MUST_BE_S = "%s arg %d must be a %s";
@@ -111,6 +111,7 @@ public abstract class ErrorMessages {
     public static final String BOOL_SHOULD_RETURN_BOOL = "__bool__ should return bool, returned %p";
     public static final String BOTH_POINTS_MUST_HAVE_THE_SAME_NUMBER_OF_DIMENSIONS = "both points must have the same number of dimensions";
     public static final String BUFFER_INDICES_MUST_BE_INTS = "buffer indices must be integers, not %p";
+    public static final String BYTECODE_VERSION_MISMATCH = "Bytecode version mismatch, expected %d actual %d";
     public static final String BYTE_STR_IS_TOO_LARGE = "byte string is too large";
     public static final String BYTEARRAY_OUT_OF_BOUNDS = "bytearray index out of range";
     public static final String BYTEORDER_MUST_BE_LITTLE_OR_BIG = "byteorder must be either 'little' or 'big'";
@@ -299,7 +300,8 @@ public abstract class ErrorMessages {
     public static final String GETATTR_ATTRIBUTE_NAME_MUST_BE_STRING = "getattr(): attribute name must be string";
     public static final String GETTING_THER_SOURCE_NOT_SUPPORTED_FOR_P = "getting the source is not supported for '%p'";
     public static final String GLOBALS_MUST_BE_DICT = "%s() globals must be a dict, not %p";
-    public static final String GOT_MULTIPLE_VALUES_FOR_ARG = "%s() got multiple values for keyword argument '%s'";
+    public static final String GOT_MULTIPLE_VALUES_FOR_ARG = "%s() got multiple values for argument '%s'";
+    public static final String GOT_MULTIPLE_VALUES_FOR_KEYWORD_ARG = "%s got multiple values for keyword argument '%s'";
     public static final String GOT_SOME_POS_ONLY_ARGS_PASSED_AS_KEYWORD = "%s() got some positional-only arguments passed as keyword arguments: '%s'";
     public static final String GOT_UNEXPECTED_KEYWORD_ARG = "%s() got an unexpected keyword argument '%s'";
     public static final String HANDLER_MUST_BE_CALLABLE = "handler must be callable";
@@ -396,8 +398,7 @@ public abstract class ErrorMessages {
     public static final String ISSUBCLASS_MUST_BE_CLASS_OR_TUPLE = "issubclass() arg 2 must be a class or tuple of classes";
     public static final String ITER_V_MUST_BE_CALLABLE = "iter(v, w): v must be callable";
     public static final String KEYWORD_NAMES_MUST_BE_STR_GOT_P = "keyword names must be str, get %p";
-    public static final String KEYWORDS_S_MUST_BE_STRINGS = "%s() keywords must be strings";
-    public static final String KEYWORDS_MUST_BE_STRINGS = "keywords must be strings";
+    public static final String KEYWORDS_S_MUST_BE_STRINGS = "%s keywords must be strings";
     public static final String KLASS_ARG_IS_NOT_HOST_OBJ = "klass argument '%p' is not a host object";
     public static final String LAZY_INITIALIZATION_FAILED = "lazy initialization of type %s failed";
     public static final String LEFT_BRACKET_WO_RIGHT_BRACKET_IN_ARG = "')' without '(' in argument parsing";
@@ -409,6 +410,7 @@ public abstract class ErrorMessages {
     public static final String LIST_INDEX_OUT_OF_RANGE = "list index out of range";
     public static final String LIST_LENGTH_OUT_OF_RANGE = "list length out of range";
     public static final String LOCAL_VAR_REFERENCED_BEFORE_ASSIGMENT = "local variable '%s' referenced before assignment";
+    public static final String UNBOUNDFREEVAR = "cannot access free variable '%s' where it is not associated with a value in enclosing scope";
     public static final String LOCALS_MUST_BE_MAPPING = "%s() locals must be a mapping or None, not %p";
     public static final String LOST_SYSBREAKPOINTHOOK = "lost sys.breakpointhook";
     public static final String LOST_SYSDISPLAYHOOK = "lost sys.displayhook";
@@ -504,6 +506,7 @@ public abstract class ErrorMessages {
     public static final String NOT_ALL_ARGS_CONVERTED_DURING_FORMATTING = "not all arguments converted during %s formatting";
     public static final String NOT_ENOUGH_ARGS_FOR_FORMAT_STRING = "not enough arguments for format string";
     public static final String NOT_ENOUGH_VALUES_TO_UNPACK = "not enough values to unpack (expected %d, got %d)";
+    public static final String NOT_ENOUGH_VALUES_TO_UNPACK_EX = "not enough values to unpack (expected at least %d, got %d)";
     public static final String NOT_SUPPORTED_BETWEEN_INSTANCES = "'%s' not supported between instances of '%p' and '%p'";
     public static final String NUMBER_IS_REQUIRED = "a number is required";
     public static final String NUMBER_S_CANNOT_FIT_INTO_INDEXSIZED_INT = "number %s cannot fit into index-sized integer";
@@ -732,7 +735,7 @@ public abstract class ErrorMessages {
     public static final String ALTERNATE_NOT_ALLOWED_WITH_C_FOR_INT = "Alternate form (#) not allowed with integer format specifier 'c'";
     public static final String ALTERNATE_NOT_ALLOWED_WITH_STRING_FMT = "Alternate form (#) not allowed in string format specifier";
     public static final String CAPI_LOAD_ERROR = "Could not load C API from %s.";
-    public static final String NATIVE_ACCESS_NOT_ALLOWED = "Cannot run any C extensions because native access is not allowed.";
+    public static final String NATIVE_ACCESS_NOT_ALLOWED = "Attempted to do native access but is not allowed.";
     public static final String HPY_LOAD_ERROR = "Could not load HPy C API from %s.";
     public static final String CANNOT_CONVERT_NEGATIVE_VALUE_TO_UNSIGNED_INT = "can't convert negative value to unsigned int";
     public static final String SEND_NON_NONE_TO_UNSTARTED_GENERATOR = "can't send non-None value to a just-started generator";
@@ -755,6 +758,7 @@ public abstract class ErrorMessages {
     public static final String S_TAKES_AT_MOST_D_ARGUMENTS_D_GIVEN = "%s() takes at most %d arguments (%d given)";
     public static final String RES_O_O_RANGE = "%s result out of range";
     public static final String FLOAT_TO_LARGE_TO_PACK_WITH_S_FMT = "float too large to pack with %s format";
+    public static final String CANNOT_UNPACK_NON_ITERABLE = "cannot unpack non-iterable %p object";
 
     // SSL errors
     public static final String SSL_SESSION_CLOSED = "SSL/TLS session closed cleanly.";

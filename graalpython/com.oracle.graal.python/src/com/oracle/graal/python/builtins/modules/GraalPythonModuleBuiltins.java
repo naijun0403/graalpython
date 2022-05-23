@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.logging.Level;
 
 import org.graalvm.nativeimage.ImageInfo;
+import org.graalvm.polyglot.io.ByteSequence;
 
 import com.oracle.graal.python.PythonLanguage;
 import com.oracle.graal.python.builtins.Builtin;
@@ -65,7 +66,9 @@ import com.oracle.graal.python.builtins.PythonBuiltinClassType;
 import com.oracle.graal.python.builtins.PythonBuiltins;
 import com.oracle.graal.python.builtins.modules.GraalPythonModuleBuiltinsFactory.DebugNodeFactory;
 import com.oracle.graal.python.builtins.objects.PNone;
+import com.oracle.graal.python.builtins.objects.bytes.BytesNodes;
 import com.oracle.graal.python.builtins.objects.bytes.PBytes;
+import com.oracle.graal.python.builtins.objects.bytes.PBytesLike;
 import com.oracle.graal.python.builtins.objects.code.CodeNodes;
 import com.oracle.graal.python.builtins.objects.code.PCode;
 import com.oracle.graal.python.builtins.objects.common.DynamicObjectStorage;
@@ -78,7 +81,6 @@ import com.oracle.graal.python.builtins.objects.dict.PDict;
 import com.oracle.graal.python.builtins.objects.exception.OSErrorEnum;
 import com.oracle.graal.python.builtins.objects.exception.OSErrorEnum.ErrorAndMessagePair;
 import com.oracle.graal.python.builtins.objects.function.PFunction;
-import com.oracle.graal.python.builtins.objects.function.Signature;
 import com.oracle.graal.python.builtins.objects.generator.PGenerator;
 import com.oracle.graal.python.builtins.objects.list.PList;
 import com.oracle.graal.python.builtins.objects.method.PMethod;
@@ -88,21 +90,22 @@ import com.oracle.graal.python.builtins.objects.set.PSet;
 import com.oracle.graal.python.lib.PyObjectCallMethodObjArgs;
 import com.oracle.graal.python.lib.PyObjectTypeCheck;
 import com.oracle.graal.python.nodes.ErrorMessages;
-import com.oracle.graal.python.nodes.argument.ReadIndexedArgumentNode;
-import com.oracle.graal.python.nodes.argument.ReadVarArgsNode;
+import com.oracle.graal.python.nodes.bytecode.PBytecodeRootNode;
+import com.oracle.graal.python.nodes.PRaiseNode;
 import com.oracle.graal.python.nodes.builtins.FunctionNodes.GetCallTargetNode;
-import com.oracle.graal.python.nodes.builtins.FunctionNodes.GetSignatureNode;
 import com.oracle.graal.python.nodes.call.CallNode;
 import com.oracle.graal.python.nodes.classes.IsSubtypeNode;
 import com.oracle.graal.python.nodes.function.FunctionRootNode;
 import com.oracle.graal.python.nodes.function.PythonBuiltinBaseNode;
 import com.oracle.graal.python.nodes.function.PythonBuiltinNode;
 import com.oracle.graal.python.nodes.function.builtins.PythonBinaryBuiltinNode;
+import com.oracle.graal.python.nodes.function.builtins.PythonTernaryBuiltinNode;
 import com.oracle.graal.python.nodes.function.builtins.PythonUnaryBuiltinNode;
 import com.oracle.graal.python.nodes.object.GetClassNode;
 import com.oracle.graal.python.nodes.statement.AbstractImportNode;
 import com.oracle.graal.python.nodes.subscript.GetItemNode;
 import com.oracle.graal.python.nodes.truffle.PythonArithmeticTypes;
+import com.oracle.graal.python.nodes.util.CannotCastException;
 import com.oracle.graal.python.nodes.util.CastToJavaStringNode;
 import com.oracle.graal.python.runtime.PosixSupportLibrary;
 import com.oracle.graal.python.runtime.PythonContext;
@@ -131,9 +134,8 @@ import com.oracle.truffle.api.interop.UnknownIdentifierException;
 import com.oracle.truffle.api.interop.UnsupportedMessageException;
 import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.nodes.LanguageInfo;
-import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
-import com.oracle.truffle.api.nodes.NodeVisitor;
+import com.oracle.truffle.api.nodes.RootNode;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.llvm.api.Toolchain;
 
@@ -448,56 +450,14 @@ public class GraalPythonModuleBuiltins extends PythonBuiltins {
 
         @TruffleBoundary
         public synchronized PFunction convertToBuiltin(PFunction func) {
-            /*
-             * (tfel): To be compatible with CPython, builtin module functions must be bound to
-             * their respective builtin module. We ignore that builtin functions should really be
-             * builtin methods here - it does not hurt if they are normal methods. What does hurt,
-             * however, is if they are not bound, because then using these functions in class field
-             * won't work when they are called from an instance of that class due to the implicit
-             * currying with "self".
-             */
-            Signature signature = GetSignatureNode.getUncached().execute(func);
-            PFunction builtinFunc;
-            FunctionRootNode functionRootNode = (FunctionRootNode) CodeNodes.GetCodeRootNode.getUncached().execute(func.getCode());
-            if (signature.getParameterIds().length > 0 && signature.getParameterIds()[0].equals("self")) {
-                /*
-                 * If the first parameter is called self, we assume the function does explicitly
-                 * declare the module argument
-                 */
-                builtinFunc = func;
-                functionRootNode.setPythonInternal(true);
-            } else {
-                RootCallTarget callTarget = PythonLanguage.get(functionRootNode).createCachedCallTarget(
-                                r -> {
-                                    /*
-                                     * Otherwise, we create a new function with a signature that
-                                     * requires one extra argument in front. We actually modify the
-                                     * function's AST here, so the original PFunction cannot be used
-                                     * anymore (its signature won't agree with it's indexed
-                                     * parameter reads).
-                                     */
-                                    assert !functionRootNode.isPythonInternal() : "a function cannot be rewritten as builtin twice";
-                                    return functionRootNode.rewriteWithNewSignature(signature.createWithSelf(), new NodeVisitor() {
-
-                                        @Override
-                                        public boolean visit(Node node) {
-                                            if (node instanceof ReadVarArgsNode) {
-                                                node.replace(ReadVarArgsNode.create(((ReadVarArgsNode) node).isBuiltin()));
-                                            } else if (node instanceof ReadIndexedArgumentNode) {
-                                                node.replace(ReadIndexedArgumentNode.create(((ReadIndexedArgumentNode) node).getIndex() + 1));
-                                            }
-                                            return true;
-                                        }
-                                    }, x -> x);
-                                }, functionRootNode);
-
-                String name = func.getName();
-                builtinFunc = factory().createFunction(name, func.getEnclosingClassName(),
-                                factory().createCode(callTarget),
-                                func.getGlobals(), func.getDefaults(), func.getKwDefaults(), func.getClosure());
+            RootNode rootNode = CodeNodes.GetCodeRootNode.getUncached().execute(func.getCode());
+            if (rootNode instanceof FunctionRootNode) {
+                ((FunctionRootNode) rootNode).setPythonInternal(true);
+            } else if (rootNode instanceof PBytecodeRootNode) {
+                ((PBytecodeRootNode) rootNode).setPythonInternal(true);
             }
-
-            return builtinFunc;
+            func.setBuiltin(true);
+            return func;
         }
     }
 
@@ -507,8 +467,12 @@ public class GraalPythonModuleBuiltins extends PythonBuiltins {
         @Specialization
         public Object doIt(PFunction func,
                         @Cached CodeNodes.GetCodeRootNode getRootNode) {
-            FunctionRootNode functionRootNode = (FunctionRootNode) getRootNode.execute(func.getCode());
-            functionRootNode.setPythonInternal(true);
+            RootNode rootNode = getRootNode.execute(func.getCode());
+            if (rootNode instanceof FunctionRootNode) {
+                ((FunctionRootNode) rootNode).setPythonInternal(true);
+            } else if (rootNode instanceof PBytecodeRootNode) {
+                ((PBytecodeRootNode) rootNode).setPythonInternal(true);
+            }
             return func;
         }
     }
@@ -687,6 +651,59 @@ public class GraalPythonModuleBuiltins extends PythonBuiltins {
             }
             PythonUtils.dumpHeap(tempFile.getPath());
             return tempFile.getPath();
+        }
+    }
+
+    @Builtin(name = "compile", parameterNames = {"codestr", "path", "mode"})
+    @GenerateNodeFactory
+    abstract static class CompileNode extends PythonTernaryBuiltinNode {
+        @Specialization
+        PCode compile(VirtualFrame frame, Object codestr, String path, String mode,
+                        @Cached PRaiseNode raise,
+                        @Cached BytesNodes.ToBytesNode toBytes,
+                        @Cached CastToJavaStringNode castStr,
+                        @Cached("create(false)") BuiltinFunctions.CompileNode compileNode) {
+            if (mode.equals("pyc")) {
+                Source source;
+                if (codestr instanceof PBytesLike) {
+                    try {
+                        source = getSource(path, toBytes.execute((PBytesLike) codestr));
+                    } catch (SecurityException | IOException ex) {
+                        throw raise.raise(SystemError, ex);
+                    }
+                } else {
+                    try {
+                        source = getSource(path, castStr.execute(codestr));
+                    } catch (CannotCastException e) {
+                        throw raise.raise(TypeError, "expected str or bytes, got '%p'", codestr);
+                    }
+                }
+                CallTarget callTarget = createCallTarget(source);
+                return factory().createCode((RootCallTarget) callTarget);
+            } else {
+                return compileNode.execute(frame, codestr, path, mode, 0, false, 2);
+            }
+        }
+
+        @TruffleBoundary
+        private CallTarget createCallTarget(Source source) {
+            return getContext().getEnv().parsePublic(source);
+        }
+
+        @TruffleBoundary
+        private Source getSource(String path, String code) {
+            return PythonLanguage.newSource(getContext(), code, path, true, PythonLanguage.MIME_TYPE_SOURCE_FOR_BYTECODE_COMPILE);
+        }
+
+        @TruffleBoundary
+        private Source getSource(String path, byte[] code) throws IOException {
+            TruffleFile truffleFile = getContext().getPublicTruffleFileRelaxed(path, PythonLanguage.DEFAULT_PYTHON_EXTENSIONS);
+            if (truffleFile.exists() && code.length == truffleFile.size()) {
+                return Source.newBuilder(PythonLanguage.ID, truffleFile).mimeType(PythonLanguage.MIME_TYPE_SOURCE_FOR_BYTECODE_COMPILE).build();
+            } else {
+                ByteSequence bs = ByteSequence.create(code);
+                return Source.newBuilder(PythonLanguage.ID, bs, path).mimeType(PythonLanguage.MIME_TYPE_SOURCE_FOR_BYTECODE_COMPILE).build();
+            }
         }
     }
 }
